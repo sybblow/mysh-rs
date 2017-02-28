@@ -1,0 +1,7 @@
+[package]
+name = "mysh-rs"
+version = "0.1.0"
+authors = ["Siliang Cao <siliang.cao@grabtaxi.com>"]
+
+[dependencies]
+error-chain = "0.10"

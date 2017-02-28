@@ -1,0 +1,4 @@
+main(){
+	hello=world
+	cat $hello
+}
