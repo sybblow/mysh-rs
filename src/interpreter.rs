@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::env;
-use std::io::Read;
+use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::iter::Iterator;
 use std::mem;
@@ -192,19 +192,21 @@ pub fn parse_file_to_ast(filename: &str) -> errors::Result<Program> {
     let mut cwd = env::current_dir()?;
     cwd.push(filename);
 
-    let mut script_file = File::open(cwd)?;
-    let mut contents = String::new();
-    script_file.read_to_string(&mut contents)?;
+    let f = File::open(cwd)?;
+    let f = BufReader::new(f);
 
-    parse_to_ast(&contents)
+    parse_to_ast(f.lines())
 }
 
-fn parse_to_ast(content: &str) -> errors::Result<Program> {
+fn parse_to_ast<T, I>(content: T) -> errors::Result<Program>
+    where T: IntoIterator<Item=::std::io::Result<I>>,
+          I: AsRef<str>
+{
     let mut program = BTreeMap::new();
 
     let mut parser = ParseState::Outside;
-    for l in content.lines() {
-        if let Some(p) = LexicalPattern::from_line(l) {
+    for l in content {
+        if let Some(p) = LexicalPattern::from_line(l?.as_ref()) {
             parser.transform_in_place(p, &mut program)?;
         } else {
             bail!(errors::ErrorKind::InvalidProgram("encounter bad line".to_owned()));
