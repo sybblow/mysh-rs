@@ -151,7 +151,7 @@ impl Environment {
     }
 
     pub fn exec_execution(&self, args: &[String]) {
-        let cmdline: Vec<String> = args.into_iter().map(|x| translate(x, &self.table).to_owned()).collect();
+        let cmdline: Vec<String> = args.into_iter().map(|x| self.expand(x).to_owned()).collect();
 
         if cmdline.len() > 1 {
             let (exec, argv) = cmdline.split_at(1);
@@ -176,6 +176,14 @@ impl Environment {
     pub fn exec_function(&mut self, function: &Function) {
         for statement in &function.0 {
             self.exec_statement(statement)
+        }
+    }
+
+    fn expand<'a>(&'a self, arg: &'a str) -> &'a str {
+        if arg.starts_with('$') {
+            self.table.get(&arg[1..]).map(String::as_str).unwrap_or("")
+        } else {
+            arg
         }
     }
 }
@@ -216,13 +224,5 @@ pub fn run(filename: &str) -> errors::Result<()> {
         return Ok(());
     } else {
         bail!(errors::ErrorKind::InvalidProgram("no main".to_owned()));
-    }
-}
-
-fn translate<'a>(arg: &'a str, table: &'a BTreeMap<String, String>) -> &'a str {
-    if arg.starts_with('$') {
-        table.get(&arg[1..]).map(String::as_str).unwrap_or("")
-    } else {
-        arg
     }
 }
