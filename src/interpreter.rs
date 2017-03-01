@@ -77,7 +77,7 @@ enum ParseState {
 }
 
 impl ParseState {
-    fn transform(self, pattern: LexicalPattern, program: &mut Program) -> errors::Result<ParseState> {
+    pub fn transform(self, pattern: LexicalPattern, program: &mut Program) -> errors::Result<ParseState> {
         let new_state = match pattern {
             LexicalPattern::FuncStart(name) => {
                 match self {
@@ -111,14 +111,14 @@ impl ParseState {
         Ok(new_state)
     }
 
-    fn transform_in_place(&mut self, pattern: LexicalPattern, program: &mut Program) -> errors::Result<()> {
+    pub fn transform_in_place(&mut self, pattern: LexicalPattern, program: &mut Program) -> errors::Result<()> {
         let new_state = self.clone();
         *self = new_state.transform(pattern, program)?;
 
         Ok(())
     }
 
-    fn end_success(self) -> errors::Result<()> {
+    pub fn end_success(self) -> errors::Result<()> {
         match self {
             ParseState::ConstructFunc(_, _) => bail!(errors::ErrorKind::InvalidProgram("haven't end".to_owned())),
             ParseState::Outside => Ok(()),
@@ -126,10 +126,53 @@ impl ParseState {
     }
 }
 
-pub fn init_env() -> (BTreeMap<String, String>, ) {
-    let table = BTreeMap::new();
+struct Environment {
+    table: BTreeMap<String, String>,
+}
 
-    (table, )
+impl Environment {
+    pub fn new() -> Environment {
+        let table = BTreeMap::new();
+
+        Environment { table: table }
+    }
+
+    pub fn exec_assignment(&mut self, assignment: &Assignment) {
+        if let Some(variable) = self.table.get_mut(&assignment.variable) {
+            *variable = assignment.value.clone();
+            return
+        }
+        self.table.insert(assignment.variable.clone(), assignment.value.clone());
+    }
+
+    pub fn exec_execution(&self, args: &Vec<String>) {
+        let cmdline: Vec<String> = args.into_iter().map(|x| translate(x, &self.table).to_owned()).collect();
+
+        if cmdline.len() > 1 {
+            let (exec, argv) = cmdline.split_at(1);
+            let _ = ::std::process::Command::new(&exec[0])
+                .args(argv)
+                .status()
+                .map_err(|e| println!("Command failed: {}", e));
+        }
+    }
+
+    pub fn exec_statement(&mut self, statement: &Statement) {
+        match *statement {
+            Statement::Assignment(ref assignment) => {
+                self.exec_assignment(assignment)
+            },
+            Statement::Execution(ref args) => {
+                self.exec_execution(args)
+            },
+        }
+    }
+
+    pub fn exec_function(&mut self, function: &Function) {
+        for statement in &function.0 {
+            self.exec_statement(statement)
+        }
+    }
 }
 
 pub fn parse_file_to_ast(filename: &str) -> errors::Result<Program> {
@@ -158,43 +201,21 @@ fn parse_to_ast(content: &str) -> errors::Result<Program> {
 }
 
 pub fn run(filename: &str) -> errors::Result<()> {
-    let (mut table, ) = init_env();
+    let mut env = Environment::new();
 
     let program = parse_file_to_ast(filename)?;
-
     if let Some(main_func) = program.get("main") {
-        for statement in &main_func.0 {
-            match *statement {
-                Statement::Assignment(ref assignment) => {
-                    if let Some(variable) = table.get_mut(&assignment.variable) {
-                        *variable = assignment.value.clone();
-                        continue
-                    }
-                    table.insert(assignment.variable.clone(), assignment.value.clone());
-                },
-                Statement::Execution(ref args) => {
-                    let cmdline: Vec<String> = args.into_iter().map(|x| translate(x, &table)).collect();
-
-                    if cmdline.len() > 1 {
-                        let (exec, argv) = cmdline.split_at(1);
-                        let _ = ::std::process::Command::new(&exec[0])
-                            .args(argv)
-                            .status()
-                            .map_err(|e| println!("Command failed: {}", e));
-                    }
-                },
-            }
-        }
+        env.exec_function(main_func);
         return Ok(());
     } else {
         bail!(errors::ErrorKind::InvalidProgram("no main".to_owned()));
     }
 }
 
-fn translate(arg: &str, table: &BTreeMap<String, String>) -> String {
+fn translate<'a>(arg: &'a str, table: &'a BTreeMap<String, String>) -> &'a str {
     if arg.starts_with("$") {
-        return table.get(&arg[1..]).map(String::as_str).unwrap_or("").to_owned()
+        table.get(&arg[1..]).map(String::as_str).unwrap_or("")
+    } else {
+        arg
     }
-
-    arg.to_owned()
 }
