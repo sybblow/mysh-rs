@@ -1,4 +1,7 @@
 main(){
 	hello=world
 	cat $hello
+
+	世界=world
+	cat $世界
 }

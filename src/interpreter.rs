@@ -67,8 +67,13 @@ impl LexicalPattern {
     }
 }
 
-fn name_valid(_name: &str) -> bool {
-    true
+fn name_valid(name: &str) -> bool {
+    if name.len() < 1 {
+        return false
+    }
+    let bad = &['{', '}', '(', ')', '='] as &[_];
+
+    name.find(bad).is_none()
 }
 
 #[derive(Clone, Debug)]
@@ -193,6 +198,8 @@ fn parse_to_ast(content: &str) -> errors::Result<Program> {
     for l in content.lines() {
         if let Some(p) = LexicalPattern::from_line(l) {
             parser.transform_in_place(p, &mut program)?;
+        } else {
+            bail!(errors::ErrorKind::InvalidProgram("encounter bad line".to_owned()));
         }
     }
     parser.end_success()?;
