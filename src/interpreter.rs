@@ -3,6 +3,7 @@ use std::env;
 use std::io::Read;
 use std::fs::File;
 use std::iter::Iterator;
+use std::mem;
 
 use super::errors;
 
@@ -112,8 +113,7 @@ impl ParseState {
     }
 
     pub fn transform_in_place(&mut self, pattern: LexicalPattern, program: &mut Program) -> errors::Result<()> {
-        let new_state = self.clone();
-        *self = new_state.transform(pattern, program)?;
+        *self = mem::replace(self, ParseState::Outside).transform(pattern, program)?;
 
         Ok(())
     }
