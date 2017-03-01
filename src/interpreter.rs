@@ -34,9 +34,9 @@ enum LexicalPattern {
 
 impl LexicalPattern {
     fn from_line(s: &str) -> Option<LexicalPattern> {
-        let trimmed = (&s).trim();
+        let trimmed = s.trim();
 
-        if trimmed.len() == 0 {
+        if trimmed.is_empty() {
             return Some(LexicalPattern::Empty);
         }
 
@@ -63,12 +63,12 @@ impl LexicalPattern {
             }
         }
 
-        return Some(LexicalPattern::Statement(Statement::Execution(trimmed.split_whitespace().map(String::from).collect())));
+        Some(LexicalPattern::Statement(Statement::Execution(trimmed.split_whitespace().map(String::from).collect())))
     }
 }
 
 fn name_valid(name: &str) -> bool {
-    if name.len() < 1 {
+    if name.is_empty() {
         return false
     }
     let bad = &['{', '}', '(', ')', '='] as &[_];
@@ -125,7 +125,7 @@ impl ParseState {
 
     pub fn end_success(self) -> errors::Result<()> {
         match self {
-            ParseState::ConstructFunc(_, _) => bail!(errors::ErrorKind::InvalidProgram("haven't end".to_owned())),
+            ParseState::ConstructFunc(..) => bail!(errors::ErrorKind::InvalidProgram("haven't end".to_owned())),
             ParseState::Outside => Ok(()),
         }
     }
@@ -150,7 +150,7 @@ impl Environment {
         self.table.insert(assignment.variable.clone(), assignment.value.clone());
     }
 
-    pub fn exec_execution(&self, args: &Vec<String>) {
+    pub fn exec_execution(&self, args: &[String]) {
         let cmdline: Vec<String> = args.into_iter().map(|x| translate(x, &self.table).to_owned()).collect();
 
         if cmdline.len() > 1 {
@@ -220,7 +220,7 @@ pub fn run(filename: &str) -> errors::Result<()> {
 }
 
 fn translate<'a>(arg: &'a str, table: &'a BTreeMap<String, String>) -> &'a str {
-    if arg.starts_with("$") {
+    if arg.starts_with('$') {
         table.get(&arg[1..]).map(String::as_str).unwrap_or("")
     } else {
         arg
