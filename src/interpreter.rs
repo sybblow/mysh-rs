@@ -67,8 +67,9 @@ impl LexicalPattern {
     }
 }
 
-fn name_valid(name: &str) -> bool {
-    if name.is_empty() {
+pub fn name_valid(name: &str) -> bool {
+    let ok = name.chars().nth(0).map_or(false, |c| !c.is_digit(10));
+    if !ok {
         return false
     }
     let bad = &['{', '}', '(', ')', '='] as &[_];
@@ -153,7 +154,7 @@ impl Environment {
     pub fn exec_execution(&self, args: &[String]) {
         let cmdline: Vec<String> = args.into_iter().map(|x| self.expand(x).to_owned()).collect();
 
-        if cmdline.len() > 1 {
+        if !cmdline.is_empty() {
             let (exec, argv) = cmdline.split_at(1);
             let _ = ::std::process::Command::new(&exec[0])
                 .args(argv)
@@ -226,5 +227,30 @@ pub fn run(filename: &str) -> errors::Result<()> {
         return Ok(());
     } else {
         bail!(errors::ErrorKind::InvalidProgram("no main".to_owned()));
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_name_valid() {
+        let tests = [
+            ("hello", true),
+            ("你好", true),
+            ("hello_123", true),
+            ("hello{", false),
+            ("hello(", false),
+            ("hel}lo", false),
+            ("hel)lo", false),
+            ("1e", false),
+            ("1ist", false),
+            ("", false),
+        ];
+
+        for t in &tests {
+            assert_eq!(t.1, name_valid(t.0), "input: {}", t.1);
+        }
     }
 }

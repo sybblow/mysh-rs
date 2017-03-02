@@ -4,4 +4,6 @@ main(){
 
 	世界=world
 	cat $世界
+
+	yes
 }
